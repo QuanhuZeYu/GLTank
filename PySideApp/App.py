@@ -1,14 +1,20 @@
 import os
 import sys
-from typing import Dict, List, Optional, Union, Any, Callable
+from typing import Dict, List, Optional, Union, Any, Callable, Literal
+
+import numpy as np
+from PIL.ImageQt import QImage
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLabel, QComboBox, QFileDialog, QScrollArea, QFrame,
                                QSpinBox, QSplitter, QLayout)
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QSize
+from numpy._typing import NDArray
 
+import imageScripts.Image
 from PySideApp.ZoomableLabel import ZoomableImageLabel
 
+Type_Position = Literal["左上角", "右上角", "左下角", "右下角", "左上右下", "右上左下"]
 
 class MyApp:
     """
@@ -341,11 +347,26 @@ class MyApp:
         """
         # 这里应该实现图片处理逻辑
         # 可以使用 imageScripts/Image.py 中的 adjust_levels 函数
-        print("处理图片功能待实现")
+        max_width, max_height = imageScripts.Image.get_max_image_dimensions(self.image_paths)
+        # 使用ndarray初始化画布
+        result_image = np.zeros((max_height, max_width, 4), dtype=np.uint8)
+        for i, image_card in enumerate(self.image_cards):
+            # 读取图片
+            image:NDArray = imageScripts.Image.safe_imread(self.image_paths[i])
+            # 调整色阶
+            input_min: int = image_card['input_min'].value()
+            input_max: int = image_card['input_max'].value()
+            output_min: int = image_card['output_min'].value()
+            output_max: int = image_card['output_max'].value()
+            image = imageScripts.Image.adjust_levels(image, input_min, input_max, output_min, output_max)
+            # 2x2像素块处理
+            position: Type_Position = image_card['position'].currentText()
+            image = imageScripts.Image.filter_pixels_2x2(image, position)
+            result_image = imageScripts.Image.blend_images(result_image, image)
 
-        # 如果有图片，显示第一张图片在预览区域
-        if self.image_paths:
-            self.preview_widget.set_image(QPixmap(self.image_paths[0]))
+        imageScripts.Image.save_image(result_image, "result_blend")
+        q_image = QImage(result_image.data, result_image.shape[1], result_image.shape[0], QImage.Format_RGBA8888)
+        self.preview_widget.set_image(QPixmap.fromImage(q_image))
     
     def run(self) -> int:
         """运行应用程序"""
