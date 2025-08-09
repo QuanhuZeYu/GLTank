@@ -2,7 +2,7 @@ import os
 import random
 import time
 
-from imageScripts.Image import adjust_levels, safe_imread, save_image
+from src.imageScripts.Image import adjust_levels, safe_imread, save_image
 
 def main():
     # 确保output目录存在

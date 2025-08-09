@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from numpy.typing import NDArray
 
-from api.Typing import Type_Position
+from src.api.Typing import Type_Position
 
 # 定义类型变量
 T = TypeVar('T', bound=np.generic)
@@ -168,7 +168,7 @@ def save_image(image: NDArray[np.uint8], file_path: str) -> bool:
         # 处理basename情况
         if not os.path.dirname(file_path) and not os.path.splitext(file_path)[1]:
             # 创建output目录
-            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'output')
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'output')
             os.makedirs(output_dir, exist_ok=True)
 
             # 构造基础文件名

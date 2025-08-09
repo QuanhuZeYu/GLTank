@@ -1,6 +1,5 @@
 import cv2
-import numpy as np
-from imageScripts.Image import filter_pixels_2x2, blend_images, save_image
+from src.imageScripts.Image import filter_pixels_2x2, blend_images, save_image
 
 def test_blend_images():
     # 1. 确保assets目录存在

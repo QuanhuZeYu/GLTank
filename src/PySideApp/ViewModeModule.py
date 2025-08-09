@@ -1,16 +1,15 @@
 import os
-from typing import List, Dict, Any, Optional
+from typing import Optional
 
 import numpy as np
 from PIL.ImageQt import QImage
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                              QLabel, QFileDialog, QScrollArea, QFrame, QSpinBox)
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
+                               QLabel, QFileDialog, QFrame, QSpinBox)
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt, QSize
 from numpy._typing import NDArray
 
-from imageScripts.Image import get_max_image_dimensions, safe_imread, adjust_levels, save_image
-from PySideApp.ZoomableLabel import ZoomableImageLabel
+from src.imageScripts.Image import safe_imread, adjust_levels
+from src.PySideApp.ZoomableLabel import ZoomableImageLabel
 
 
 def ndarray_to_pixmap(arr: NDArray) -> QPixmap:

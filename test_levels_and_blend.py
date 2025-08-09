@@ -1,9 +1,7 @@
-import cv2
-import numpy as np
 import os
 import glob
 import random
-from imageScripts.Image import adjust_levels, filter_pixels_2x2, blend_images, save_image
+from src.imageScripts.Image import adjust_levels, filter_pixels_2x2, blend_images, save_image
 
 def test_levels_and_blend():
     # 1. 确保assets目录存在
@@ -23,7 +21,7 @@ def test_levels_and_blend():
     # 3. 随机选择两张不同的图片
     selected_images = random.sample(image_files, 2)
     try:
-        from imageScripts.Image import safe_imread
+        from src.imageScripts.Image import safe_imread
         image1 = safe_imread(selected_images[0])
         image2 = safe_imread(selected_images[1])
     except ValueError as e:

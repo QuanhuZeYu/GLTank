@@ -10,11 +10,11 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
 from PySide6.QtCore import Qt, QSize
 import numpy._typing
 
-from PySideApp.ViewModeModule import ViewModeModule
-from PySideApp.MakeModeModule import MakeModeModule
-from PySideApp.ZoomableLabel import ZoomableImageLabel
-from api.Typing import Type_Position
-from imageScripts.Image import get_max_image_dimensions, safe_imread, adjust_levels, filter_pixels_2x2, blend_images, \
+from src.PySideApp.ViewModeModule import ViewModeModule
+from src.PySideApp.MakeModeModule import MakeModeModule
+from src.PySideApp.ZoomableLabel import ZoomableImageLabel
+from src.api.Typing import Type_Position
+from src.imageScripts.Image import get_max_image_dimensions, safe_imread, adjust_levels, filter_pixels_2x2, blend_images, \
     save_image
 
 

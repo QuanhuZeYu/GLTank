@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
                                QLabel, QComboBox, QFileDialog, QScrollArea,
                                QFrame, QSpinBox)
 
-import imageScripts.Image
-from PySideApp.ZoomableLabel import ZoomableImageLabel
+import src.imageScripts.Image
+from src.PySideApp.ZoomableLabel import ZoomableImageLabel
 
 
 class MakeModeModule:
@@ -203,22 +203,22 @@ class MakeModeModule:
 
     def process_images(self) -> None:
         """处理图片"""
-        max_width, max_height = imageScripts.Image.get_max_image_dimensions(self.image_paths)
+        max_width, max_height = src.imageScripts.Image.get_max_image_dimensions(self.image_paths)
         result_image = np.zeros((max_height, max_width, 4), dtype=np.uint8)
 
         for i, image_card in enumerate(self.image_cards):
-            image = imageScripts.Image.safe_imread(self.image_paths[i])
+            image = src.imageScripts.Image.safe_imread(self.image_paths[i])
             input_min = image_card['input_min'].value()
             input_max = image_card['input_max'].value()
             output_min = image_card['output_min'].value()
             output_max = image_card['output_max'].value()
-            image = imageScripts.Image.adjust_levels(image, input_min, input_max, output_min, output_max)
+            image = src.imageScripts.Image.adjust_levels(image, input_min, input_max, output_min, output_max)
 
             position = image_card['position'].currentText()
-            image = imageScripts.Image.filter_pixels_2x2(image, position)
-            result_image = imageScripts.Image.blend_images(result_image, image)
+            image = src.imageScripts.Image.filter_pixels_2x2(image, position)
+            result_image = src.imageScripts.Image.blend_images(result_image, image)
 
-        imageScripts.Image.save_image(result_image, "result_blend")
+        src.imageScripts.Image.save_image(result_image, "result_blend")
         q_image = QImage(result_image.data, result_image.shape[1], result_image.shape[0], QImage.Format_RGBA8888)
         self.preview_widget.set_image(QPixmap.fromImage(q_image))
 

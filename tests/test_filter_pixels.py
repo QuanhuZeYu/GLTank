@@ -2,7 +2,6 @@
 import unittest
 import cv2
 import numpy as np
-import os
 import sys
 import io
 import random
@@ -18,7 +17,7 @@ if sys.stdout.encoding != 'UTF-8':
 # 添加项目根目录到Python路径，以便导入imageScripts模块
 sys.path.append(str(Path(__file__).parent.parent))
 
-from imageScripts.Image import filter_pixels_2x2, save_image
+from src.imageScripts.Image import filter_pixels_2x2, save_image
 
 class TestFilterPixels(unittest.TestCase):
     def setUp(self):
