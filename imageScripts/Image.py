@@ -1,11 +1,11 @@
 import os
-from typing import Union, overload, Literal, TypeVar
+from typing import Union, overload, TypeVar
 
 import numpy as np
 from PIL import Image
 from numpy.typing import NDArray
 
-from PySideApp.App import Type_Position
+from api.Typing import Type_Position
 
 # 定义类型变量
 T = TypeVar('T', bound=np.generic)

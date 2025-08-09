@@ -1,20 +1,22 @@
 import os
 import sys
-from typing import Dict, List, Optional, Union, Any, Callable, Literal
+from typing import Optional, List, Dict, Any
 
 import numpy as np
-from PIL.ImageQt import QImage
+from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-                               QPushButton, QLabel, QComboBox, QFileDialog, QScrollArea, QFrame,
-                               QSpinBox, QSplitter, QLayout)
-from PySide6.QtGui import QPixmap
+                               QPushButton, QLabel, QSplitter, QLayout, QFrame, QScrollArea, QFileDialog, QComboBox,
+                               QSpinBox)
 from PySide6.QtCore import Qt, QSize
-from numpy._typing import NDArray
+import numpy._typing
 
-import imageScripts.Image
+from PySideApp.ViewModeModule import ViewModeModule
+from PySideApp.MakeModeModule import MakeModeModule
 from PySideApp.ZoomableLabel import ZoomableImageLabel
+from api.Typing import Type_Position
+from imageScripts.Image import get_max_image_dimensions, safe_imread, adjust_levels, filter_pixels_2x2, blend_images, \
+    save_image
 
-Type_Position = Literal["左上角", "右上角", "左下角", "右下角", "左上右下", "右上左下"]
 
 class MyApp:
     """
@@ -28,7 +30,7 @@ class MyApp:
                         - 按钮(text: "制作模式")
                         - 按钮(text: "查看模式")
 
-
+                    { `制作模式容器`
                     - 标签(text: "{动态设置 默认: 请选择模式}")
                     - 垂直容器 `选择容器`
                         - 标签(text: "选择图片")
@@ -54,6 +56,21 @@ class MyApp:
                                 - 标签(text: "输出色阶最大值")
                                 - 输入框(type: int, value: 255, min: 0, max: 255)
                             }
+                    }
+                    { `查看模式容器`
+                    - 标签(text: "请选择要查看的图片")
+                    - 垂直容器 `选择容器`
+                        - 标签(text: "选择图片")
+                        - 按钮(text: "添加图片")
+                    - 标签(text: "选择色阶范围")
+                    - 垂直容器 `查看设置容器`
+                        - 标签(text: "输入色阶最小值")
+                        - 输入框(type: int, value: 0, min: 0, max: 255)
+                        - 标签(text: "输入色阶最大值")
+                        - 输入框(type: int, value: 255, min: 0, max: 255)
+                    - 按钮(text: "解析图片")
+                    - 弹簧组件
+                    }
                 - 图片预览器 `PySideApp.ZoomableLabel`
     """
     def __init__(self) -> None:
@@ -134,16 +151,9 @@ class MyApp:
         # 清空动态内容区域
         self.clear_layout(self.dynamic_layout)
         
-        # 创建选择容器
-        self.create_selection_container()
-        
-        # 创建图片管理容器
-        self.create_image_management_container()
-        
-        # 添加制作按钮
-        self.make_button: QPushButton = QPushButton("制作")
-        self.dynamic_layout.addWidget(self.make_button)
-        self.make_button.clicked.connect(self.process_images)
+        # 创建制作模式模块
+        self.make_mode = MakeModeModule(self.dynamic_content, self.preview_widget)
+        self.dynamic_layout.addWidget(self.make_mode.get_container())
     
     def create_selection_container(self) -> None:
         """创建选择容器"""
@@ -184,9 +194,9 @@ class MyApp:
         # 清空动态内容区域
         self.clear_layout(self.dynamic_layout)
         
-        # 创建查看模式的控件
-        view_label = QLabel("查看模式 - 功能待实现")
-        self.dynamic_layout.addWidget(view_label)
+        # 创建查看模式模块
+        self.view_mode = ViewModeModule(self.dynamic_content, self.preview_widget)
+        self.dynamic_layout.addWidget(self.view_mode.get_container())
     
     def clear_layout(self, layout: Optional[QLayout]) -> None:
         """递归清除布局中的所有控件"""
@@ -347,24 +357,24 @@ class MyApp:
         """
         # 这里应该实现图片处理逻辑
         # 可以使用 imageScripts/Image.py 中的 adjust_levels 函数
-        max_width, max_height = imageScripts.Image.get_max_image_dimensions(self.image_paths)
+        max_width, max_height = get_max_image_dimensions(self.image_paths)
         # 使用ndarray初始化画布
         result_image = np.zeros((max_height, max_width, 4), dtype=np.uint8)
         for i, image_card in enumerate(self.image_cards):
             # 读取图片
-            image:NDArray = imageScripts.Image.safe_imread(self.image_paths[i])
+            image:numpy._typing.NDArray = safe_imread(self.image_paths[i])
             # 调整色阶
             input_min: int = image_card['input_min'].value()
             input_max: int = image_card['input_max'].value()
             output_min: int = image_card['output_min'].value()
             output_max: int = image_card['output_max'].value()
-            image = imageScripts.Image.adjust_levels(image, input_min, input_max, output_min, output_max)
+            image = adjust_levels(image, input_min, input_max, output_min, output_max)
             # 2x2像素块处理
             position: Type_Position = image_card['position'].currentText()
-            image = imageScripts.Image.filter_pixels_2x2(image, position)
-            result_image = imageScripts.Image.blend_images(result_image, image)
+            image = filter_pixels_2x2(image, position)
+            result_image = blend_images(result_image, image)
 
-        imageScripts.Image.save_image(result_image, "result_blend")
+        save_image(result_image, "result_blend")
         q_image = QImage(result_image.data, result_image.shape[1], result_image.shape[0], QImage.Format_RGBA8888)
         self.preview_widget.set_image(QPixmap.fromImage(q_image))
     
