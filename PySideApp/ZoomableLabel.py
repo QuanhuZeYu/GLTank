@@ -32,8 +32,24 @@ class ZoomableImageLabel(QLabel):
             return
 
         self.pixmap_original = pixmap
-        self.scale_factor = 1.0
         self.offset = QPointF(0, 0)
+        
+        # 计算适合预览框的初始缩放比例
+        if not pixmap.isNull():
+            # 获取预览框和图片的尺寸
+            view_width = self.width()
+            view_height = self.height()
+            img_width = pixmap.width()
+            img_height = pixmap.height()
+            
+            # 计算保持宽高比的最大缩放比例
+            width_ratio = view_width / img_width
+            height_ratio = view_height / img_height
+            self.scale_factor = min(width_ratio, height_ratio)
+            
+            # 确保缩放比例在允许范围内
+            self.scale_factor = max(min(self.scale_factor, self.max_scale), self.min_scale)
+        
         self.update_pixmap()
 
     def update_pixmap(self) -> None:
