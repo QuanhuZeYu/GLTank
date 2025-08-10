@@ -131,27 +131,262 @@ def blend_images(
     """
     将两张图像叠加，以最大宽高作为画布，左上角对齐
     
-    :param image1: 第一张输入图像（RGB/RGBA）
-    :param image2: 第二张输入图像（RGB/RGBA）
-    :return: 叠加后的RGBA图像，numpy.ndarray[uint8]类型(4通道)
+    参数:
+        image1: 第一张输入图像(RGB/RGBA格式)
+        image2: 第二张输入图像(RGB/RGBA格式)
+        
+    返回:
+        叠加后的RGBA图像，numpy.ndarray[uint8]类型(4通道)
+        
+    处理逻辑:
+        1. 创建最大尺寸的画布
+        2. 将第一张图像放入画布左上角
+        3. 将第二张图像的非透明像素叠加到画布上
+        4. 保持alpha通道为255(不透明)
     """
-    # 获取最大宽高
+    # 获取最大宽高作为画布尺寸
     max_width = max(image1.shape[1], image2.shape[1])
     max_height = max(image1.shape[0], image2.shape[0])
 
-    # 创建画布
-    new_image = np.zeros((max_height, max_width, 4), dtype=np.uint8)
-    new_image[:, :, 3] = 255  # 设置alpha通道为255
+    # 创建画布并初始化alpha通道为255(不透明)
+    canvas = np.zeros((max_height, max_width, 4), dtype=np.uint8)
+    canvas[:, :, 3] = 255
 
-    # 将图像复制到画布
-    new_image[:image1.shape[0], :image1.shape[1], :3] = image1[..., :3]  # 确保只取前3通道
-    for y in range(image2.shape[0]):
-        for x in range(image2.shape[1]):
-            if image2[y, x, 3] != 0:  # 只有非透明像素才复制
-                new_image[y, x, :3] = image2[y, x, :3]
+    # 处理第一张图像(RGB转RGBA)
+    if image1.shape[2] == 3:  # RGB格式
+        canvas[:image1.shape[0], :image1.shape[1], :3] = image1
+    else:  # RGBA格式
+        canvas[:image1.shape[0], :image1.shape[1]] = image1
 
-    return new_image
+    # 处理第二张图像 - 只叠加非透明像素
+    if image2.shape[2] == 3:  # RGB格式
+        # 整个图像都是不透明的
+        canvas[:image2.shape[0], :image2.shape[1], :3] = image2
+    else:  # RGBA格式
+        # 使用numpy布尔索引高效处理
+        mask = image2[..., 3] > 0
+        y_end = min(image2.shape[0], max_height)
+        x_end = min(image2.shape[1], max_width)
+        canvas[:y_end, :x_end][mask[:y_end, :x_end]] = image2[mask]
 
+    return canvas
+
+def blend_images_small(
+    image1: NDArray[np.uint8],
+    image2: NDArray[np.uint8],
+) -> NDArray[np.uint8]:
+    """
+    两张图像叠加，以最小宽高作为画布，中心对齐并保持宽高比缩放
+    
+    参数:
+        image1: 第一张输入图像(RGBA格式)
+        image2: 第二张输入图像(RGBA格式)
+        
+    返回:
+        叠加后的RGBA图像，以最小宽高作为画布，中心对齐
+        
+    处理逻辑:
+        1. 确定最小宽高作为画布尺寸
+        2. 分别计算两张图像的缩放比例
+        3. 保持宽高比缩放图像
+        4. 将缩放后的图像中心对齐放置
+        5. 叠加非透明像素
+    """
+    # 确定最小画布尺寸
+    min_width = min(image1.shape[1], image2.shape[1])
+    min_height = min(image1.shape[0], image2.shape[0])
+    
+    # 创建透明画布
+    canvas = np.zeros((min_height, min_width, 4), dtype=np.uint8)
+    
+    def scale_and_center(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        """缩放图像并中心对齐"""
+        # 计算缩放比例
+        h, w = img.shape[:2]
+        scale = max(min_width / w, min_height / h)
+        
+        # 使用PIL进行高质量缩放
+        pil_img = Image.fromarray(img)
+        new_size = (int(w * scale), int(h * scale))
+        scaled_img = np.array(pil_img.resize(new_size, Image.Resampling.LANCZOS))
+        
+        # 计算中心偏移
+        offset_x = (min_width - new_size[0]) // 2
+        offset_y = (min_height - new_size[1]) // 2
+        
+        # 创建临时画布
+        temp_canvas = np.zeros((min_height, min_width, 4), dtype=np.uint8)
+        
+        # 将缩放后的图像放入中心
+        y_start = max(0, offset_y)
+        y_end = min(min_height, offset_y + new_size[1])
+        x_start = max(0, offset_x)
+        x_end = min(min_width, offset_x + new_size[0])
+        
+        img_y_start = max(0, -offset_y)
+        img_y_end = min(new_size[1], min_height - offset_y)
+        img_x_start = max(0, -offset_x)
+        img_x_end = min(new_size[0], min_width - offset_x)
+        
+        temp_canvas[y_start:y_end, x_start:x_end] = scaled_img[
+            img_y_start:img_y_end, img_x_start:img_x_end
+        ]
+        
+        return temp_canvas
+    
+    # 处理第一张图像
+    scaled1 = scale_and_center(image1)
+    canvas[scaled1[..., 3] > 0] = scaled1[scaled1[..., 3] > 0]
+    
+    # 处理第二张图像
+    scaled2 = scale_and_center(image2)
+    canvas[scaled2[..., 3] > 0] = scaled2[scaled2[..., 3] > 0]
+    
+    return canvas
+
+
+def blend_on_canvas(
+    canvas: NDArray[np.uint8],
+    overlay: NDArray[np.uint8],
+) -> NDArray[np.uint8]:
+    """
+    将overlay图像叠加到canvas上，保持canvas尺寸不变，overlay会保持比例缩放到最合适填充
+    
+    参数:
+        canvas: 作为画布的输入图像(RGB/RGBA格式)
+        overlay: 要叠加的图像(RGB/RGBA格式)
+        
+    返回:
+        叠加后的图像，保持canvas的尺寸和格式
+        
+    处理逻辑:
+        1. 如果canvas是RGB格式，转换为RGBA
+        2. 当尺寸相同时直接叠加，否则将overlay保持比例缩放到最适合canvas的尺寸
+        3. 将overlay中心对齐放置到canvas上
+        4. 只叠加非透明像素
+    """
+    # 确保canvas是RGBA格式
+    if canvas.shape[2] == 3:  # RGB格式
+        rgba_canvas = np.zeros((canvas.shape[0], canvas.shape[1], 4), dtype=np.uint8)
+        rgba_canvas[..., :3] = canvas
+        rgba_canvas[..., 3] = 255  # 设置alpha通道为不透明
+    else:  # RGBA格式
+        rgba_canvas = canvas.copy()
+    
+    # 检查尺寸是否相同
+    canvas_height, canvas_width = rgba_canvas.shape[:2]
+    overlay_height, overlay_width = overlay.shape[:2]
+    
+    if canvas_height == overlay_height and canvas_width == overlay_width:
+        # 尺寸相同，直接叠加
+        if overlay.shape[2] == 4:  # RGBA格式
+            mask = overlay[..., 3] > 0
+            rgba_canvas[mask] = overlay[mask]
+        else:  # RGB格式
+            rgba_canvas[..., :3] = overlay
+    else:
+        # 尺寸不同，需要缩放
+        # 计算保持比例且能覆盖canvas的最小缩放尺寸
+        scale = max(canvas_width / overlay_width, canvas_height / overlay_height)
+        new_width = int(overlay_width * scale)
+        new_height = int(overlay_height * scale)
+        
+        # 使用PIL进行高质量缩放
+        if overlay.shape[2] == 3:  # RGB格式
+            pil_overlay = Image.fromarray(overlay).convert('RGBA')
+        else:  # RGBA格式
+            pil_overlay = Image.fromarray(overlay)
+        
+        scaled_overlay = np.array(pil_overlay.resize((new_width, new_height), Image.Resampling.LANCZOS))
+        
+        # 计算中心偏移
+        offset_x = (canvas_width - new_width) // 2
+        offset_y = (canvas_height - new_height) // 2
+        
+        # 将缩放后的overlay放入canvas中心
+        y_start = max(0, offset_y)
+        y_end = min(canvas_height, offset_y + new_height)
+        x_start = max(0, offset_x)
+        x_end = min(canvas_width, offset_x + new_width)
+        
+        img_y_start = max(0, -offset_y)
+        img_y_end = min(new_height, canvas_height - offset_y)
+        img_x_start = max(0, -offset_x)
+        img_x_end = min(new_width, canvas_width - offset_x)
+        
+        # 只叠加非透明像素
+        if scaled_overlay.shape[2] == 4:  # RGBA格式
+            mask = scaled_overlay[img_y_start:img_y_end, img_x_start:img_x_end, 3] > 0
+            rgba_canvas[y_start:y_end, x_start:x_end][mask] = scaled_overlay[img_y_start:img_y_end, img_x_start:img_x_end][mask]
+        else:  # RGB格式
+            rgba_canvas[y_start:y_end, x_start:x_end, :3] = scaled_overlay[img_y_start:img_y_end, img_x_start:img_x_end]
+    
+    return rgba_canvas
+
+def prepare_blend_images(
+    canvas: NDArray[np.uint8],
+    overlay: NDArray[np.uint8],
+) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+    """
+    准备要混合的图像，对overlay进行与blend_on_canvas相同的缩放处理但不叠加
+    
+    参数:
+        canvas: 基础图像(RGB/RGBA格式)
+        overlay: 要缩放的图像(RGB/RGBA格式)
+        
+    返回:
+        元组(原样canvas, 缩放后的overlay)
+        
+    处理逻辑:
+        1. 保持canvas不变
+        2. 对overlay进行与blend_on_canvas相同的缩放处理
+        3. 返回处理后的两张图像
+    """
+    # 计算overlay的缩放比例
+    canvas_height, canvas_width = canvas.shape[:2]
+    overlay_height, overlay_width = overlay.shape[:2]
+    
+    # 计算保持比例且能覆盖canvas的最小缩放尺寸
+    scale = max(canvas_width / overlay_width, canvas_height / overlay_height)
+    new_width = int(overlay_width * scale)
+    new_height = int(overlay_height * scale)
+    
+    # 使用PIL进行高质量缩放
+    if overlay.shape[2] == 3:  # RGB格式
+        pil_overlay = Image.fromarray(overlay).convert('RGBA')
+    else:  # RGBA格式
+        pil_overlay = Image.fromarray(overlay)
+    
+    scaled_overlay = np.array(pil_overlay.resize((new_width, new_height), Image.Resampling.LANCZOS))
+    
+    # 计算中心偏移
+    offset_x = (canvas_width - new_width) // 2
+    offset_y = (canvas_height - new_height) // 2
+    
+    # 创建与canvas同尺寸的透明画布
+    if canvas.shape[2] == 3:  # RGB格式
+        rgba_canvas = np.zeros((canvas_height, canvas_width, 4), dtype=np.uint8)
+        rgba_canvas[..., :3] = canvas
+        rgba_canvas[..., 3] = 255  # 设置alpha通道为不透明
+    else:  # RGBA格式
+        rgba_canvas = canvas.copy()
+    
+    # 将缩放后的overlay放入临时画布中心
+    y_start = max(0, offset_y)
+    y_end = min(canvas_height, offset_y + new_height)
+    x_start = max(0, offset_x)
+    x_end = min(canvas_width, offset_x + new_width)
+    
+    img_y_start = max(0, -offset_y)
+    img_y_end = min(new_height, canvas_height - offset_y)
+    img_x_start = max(0, -offset_x)
+    img_x_end = min(new_width, canvas_width - offset_x)
+    
+    # 创建临时画布存放缩放后的overlay
+    temp_canvas = np.zeros_like(rgba_canvas)
+    temp_canvas[y_start:y_end, x_start:x_end] = scaled_overlay[img_y_start:img_y_end, img_x_start:img_x_end]
+    
+    return rgba_canvas, temp_canvas
 
 def save_image(image: NDArray[np.uint8], file_path: str) -> bool:
     """
